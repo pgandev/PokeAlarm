@@ -22,24 +22,30 @@ class DiscordAlarm(Alarm):
     _defaults = {
         'pokemon': {
             'username': "<pkmn>",
+            'avatar_url': "https://raw.githubusercontent.com/kvangent/PokeAlarm/master/icons/<pkmn_id>.png",
             'icon_url': "https://raw.githubusercontent.com/kvangent/PokeAlarm/master/icons/<pkmn_id>.png",
             'title': "A wild <pkmn> has appeared!",
             'url': "<gmaps>",
-            'body': "Available until <24h_time> (<time_left>)."
+            'body': "Available until <24h_time> (<time_left>).",
+            'content': ""
         },
         'pokestop': {
             'username': "Pokestop",
+            'avatar_url': "https://raw.githubusercontent.com/kvangent/PokeAlarm/master/icons/<pkmn_id>.png",
             'icon_url': "https://raw.githubusercontent.com/kvangent/PokeAlarm/master/icons/pokestop.png",
             'title': "Someone has placed a lure on a Pokestop!",
             'url': "<gmaps>",
-            'body': "Lure will expire at <24h_time> (<time_left>)."
+            'body': "Lure will expire at <24h_time> (<time_left>).",
+            'content': ""
         },
         'gym': {
             'username': "<new_team> Gym Alerts",
+            'avatar_url': "https://raw.githubusercontent.com/kvangent/PokeAlarm/master/icons/<pkmn_id>.png",
             'icon_url': "https://raw.githubusercontent.com/kvangent/PokeAlarm/master/icons/gym_<team_id>.png",
             'title': "A Team <old_team> gym has fallen!",
             'url': "<gmaps>",
-            'body': "It is now controlled by <new_team>."
+            'body': "It is now controlled by <new_team>.",
+            'content': ""
         }
     }
 
@@ -93,23 +99,51 @@ class DiscordAlarm(Alarm):
             'map': get_static_map_url(settings.pop('map', self.__map), self.__static_map_key)
         }
 
-        reject_leftover_parameters(settings, "'Alert level in Discord alarm.")
+        if 'content' in settings:
+            alert = {
+                'webhook_url': settings.get('webhook_url', self.__webhook_url),
+                'username': settings.get('username', default['username']),
+                'avatar_url': settings.get('avatar_url', default['avatar_url']),
+                'content': settings.get('content', default['content'])
+            }
+        else:
+            alert = {
+                'webhook_url': settings.get('webhook_url', self.__webhook_url),
+                'username': settings.get('username', default['username']),
+                'avatar_url': settings.get('avatar_url', default['avatar_url']),
+                'icon_url': settings.get('icon_url', default['icon_url']),
+                'title': settings.get('title', default['title']),
+                'url': settings.get('url', default['url']),
+                'body': settings.get('body', default['body']),
+                'map': get_static_map_url(settings.get('map', self.__map), self.__static_map_key)
+            }
+
+        #reject_leftover_parameters(settings, "'Alert level in Discord alarm.")
         return alert
 
     # Send Alert to Discord
     def send_alert(self, alert, info):
         log.debug("Attempting to send notification to Discord.")
-        payload = {
-            'username': replace(alert['username'], info),
-            'embeds': [{
-                'title': replace(alert['title'], info),
-                'url': replace(alert['url'], info),
-                'description': replace(alert['body'], info),
-                'thumbnail': {'url': replace(alert['icon_url'], info)}
-            }]
-        }
-        if alert['map'] is not None:
-            payload['embeds'][0]['image'] = {'url': replace(alert['map'], {'lat': info['lat'], 'lng': info['lng']})}
+
+        if 'content' in alert:
+            payload = {
+                'username': replace(alert['username'], info),
+                'avatar_url': replace(alert['avatar_url'], info),
+                'content': replace(alert['content'], info)
+            }
+        else:
+            payload = {
+                'username': replace(alert['username'], info),
+                'embeds': [{
+                    'avatar_url': replace(alert['avatar_url'], info),
+                    'title': replace(alert['title'], info),                    'url': replace(alert['url'], info),
+                    'description': replace(alert['body'], info),
+                    'thumbnail': replace(alert['icon_url'], info)
+                }]
+            }
+            if alert['map'] is not None:
+                payload['embeds'][0]['image'] = {'url': replace(alert['map'], {'lat': info['lat'], 'lng': info['lng']})}
+
         args = {
             'url': alert['webhook_url'],
             'payload': payload
